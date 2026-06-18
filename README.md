@@ -1,6 +1,6 @@
 # Detecção de Fraude Financeira com Neo4j
 
-Sistema de detecção de lavagem de dinheiro baseado em grafos, desenvolvido com Neo4j e Python como projeto acadêmico da graduação.
+Sistema de detecção de lavagem de dinheiro baseado em grafos, desenvolvido com Neo4j e Python como projeto acadêmico.
 
 ## Motivação
 
