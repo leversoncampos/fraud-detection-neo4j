@@ -1,3 +1,14 @@
-fraud_detection/.env
-fraud_detection/__pycache__/
-fraud_detection/queries.txt
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+
+# Outputs
+outputs/*
+!outputs/.gitkeep
