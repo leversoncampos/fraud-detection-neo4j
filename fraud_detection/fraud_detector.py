@@ -115,9 +115,9 @@ _Q4_TEMPORAL_ANALYSIS = """
         first_at, last_at,
         duration.inSeconds(first_at, last_at).seconds AS window_seconds,
         CASE
-            WHEN duration.inSeconds(first_at, last_at).seconds < 600  THEN 'CRÍTICO'
-            WHEN duration.inSeconds(first_at, last_at).seconds < 1800 THEN 'ALTO'
-            ELSE 'MÉDIO'
+            WHEN duration.inSeconds(first_at, last_at).seconds < 600  THEN 'CRITICAL'
+            WHEN duration.inSeconds(first_at, last_at).seconds < 1800 THEN 'HIGH'
+            ELSE 'MEDIUM'
         END AS risk_level
     ORDER BY window_seconds ASC
 """
@@ -311,7 +311,7 @@ class FraudDetector:
         print(f"{_C.BOLD}{_C.CYAN}{'─' * 68}")
         print("  ⏱   Q4 — ANÁLISE TEMPORAL E CLASSIFICAÇÃO DE RISCO")
         print(f"{'─' * 68}{_C.RESET}")
-        colors = {"CRÍTICO": _C.RED, "ALTO": _C.YELLOW, "MÉDIO": _C.BLUE}
+        colors = {"CRITICAL": _C.RED, "HIGH": _C.YELLOW, "MEDIUM": _C.BLUE}
         for r in temporal:
             col   = colors.get(str(r.get("risk_level", "")), _C.RESET)
             level = r.get("risk_level", "—")
