@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any, Generator
 
 from neo4j import GraphDatabase, Session
-from neo4j.exceptions import AuthError, Neo4jError, ServiceUnavailable
+from neo4j.exceptions import Neo4jError
 
 logger = logging.getLogger(__name__)
 
