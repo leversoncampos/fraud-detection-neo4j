@@ -65,18 +65,20 @@ _Q2_STRUCTURAL_CYCLES = """
          [n IN nodes(path) WHERE n:Transaction | n.amount]     AS amounts,
          [n IN nodes(path) WHERE n:Transaction | n.timestamp]  AS timestamps,
          [n IN nodes(path) WHERE n:BankAccount | n.account_number] AS accounts
-    WHERE timestamps[0] IS NOT NULL
-      AND timestamps[-1] IS NOT NULL
-      AND duration.inSeconds(timestamps[0], timestamps[-1]).seconds < 7200
+    UNWIND timestamps AS ts
+    WITH start, amounts, timestamps, accounts,
+         min(ts) AS first_at,
+         max(ts) AS last_at
+    WHERE first_at IS NOT NULL
+      AND last_at IS NOT NULL
+      AND duration.inSeconds(first_at, last_at).seconds < 7200
     RETURN DISTINCT
         start.account_number               AS origin_account,
         size(amounts)                      AS cycle_hops,
         round(amounts[0],  2)              AS initial_amount,
         round(amounts[-1], 2)              AS final_amount,
         round(amounts[0] - amounts[-1], 2) AS laundered_fees,
-        duration.inSeconds(
-            timestamps[0], timestamps[-1]
-        ).seconds                          AS cycle_window_seconds,
+        duration.inSeconds(first_at, last_at).seconds AS cycle_window_seconds,
         accounts                           AS participant_accounts
     ORDER BY initial_amount DESC
     LIMIT 20
