@@ -2,9 +2,12 @@
 Module 3 — Fraud Detector
 Runs 4 detection queries and prints a formatted report.
 
-FIX: Q2 — removed length(path), which is incompatible with quantified path
-patterns in Neo4j 5. The hop-count filter now uses size(amounts) after the WITH.
+Q2 went through three rounds of debugging — see the comment above
+_Q2_STRUCTURAL_CYCLES and the deduplication note on _detect_structural_cycles
+for the full history (unbounded path search, chronological ordering bug, and
+rotation-based duplicate rows).
 """
+
 from __future__ import annotations
 
 import logging
@@ -52,10 +55,24 @@ _Q1_LABELED_CYCLES = """
 """
 
 # ── Q2 — Structural cycles (label-independent) ────────────────────
-# FIX: length(path) was removed.
-# - Quantified path patterns (Neo4j 5.9+) don't support length()
-# - The hop count is inferred via size(amounts) after the WITH
-# - Temporal window < 2h (7200s) filters out legitimate coincidental routes
+# This query went through three fixes during development:
+#
+# 1. length(path) was removed — quantified path patterns (Neo4j 5.9+)
+#    don't support length() the way single-relationship paths do.
+# 2. The original unbounded quantifier (`+`) made Neo4j search for cycles
+#    of ANY length, which is combinatorially expensive and hung on a
+#    21-account dataset. Bounded to {2,5}, matching the generator's actual
+#    cycle size range.
+# 3. The temporal filter used timestamps[0]/timestamps[-1] (first/last by
+#    PATH TRAVERSAL order), not chronological order — a path that happened
+#    to be matched "backwards" produced a negative duration, which always
+#    passed the `< 7200` filter. Fixed by computing min(ts)/max(ts) via
+#    UNWIND instead of relying on list position.
+#
+# A fourth issue — the same cycle returned once per possible starting
+# account — is NOT fixed here; it's handled in Python, in
+# _detect_structural_cycles(), via deduplication on the participant-account
+# set. See that method's docstring for why.
 
 _Q2_STRUCTURAL_CYCLES = """
     MATCH path = (start:BankAccount)
