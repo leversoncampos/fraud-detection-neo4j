@@ -104,6 +104,11 @@ trustworthy than one that names them.
 - Fraud detection here is **rule-based** (explicit Cypher patterns), not
   statistical or ML-based. That is a deliberate scope choice for this project,
   not an oversight — but it is worth stating plainly.
+- Q2's `initial_amount`/`final_amount` (and therefore the derived "fee") are
+  computed from whichever rotation of a cycle Cypher happens to return, not
+  from the cycle's true chronological start — see
+  [`CYPHER_QUERIES.md`](./CYPHER_QUERIES.md#q2--structural-cycles-label-independent)
+  for why. Q1's figures, based on the `cycle_id` label, are not affected.
 
 ## 5. Related Documents
 
