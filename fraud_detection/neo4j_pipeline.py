@@ -1,5 +1,5 @@
 """
-Módulo 2 — Pipeline de Ingestão Neo4j
+Module 2 — Neo4j Ingestion Pipeline
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from data_generator import BankAccount, Client, SyntheticDataset, Transaction
 
 logger = logging.getLogger(__name__)
 
-# ── Schema (IF NOT EXISTS = idempotente) ──────────────────────────
+# ── Schema (IF NOT EXISTS = idempotent) ───────────────────────────
 _CONSTRAINT_CLIENT = """
     CREATE CONSTRAINT client_id_unique IF NOT EXISTS
     FOR (c:Client) REQUIRE c.client_id IS UNIQUE
@@ -37,7 +37,7 @@ _INDEX_TX_CYCLE = """
     FOR (t:Transaction) ON (t.cycle_id)
 """
 
-# ── Queries de ingestão (UNWIND + MERGE = idempotente e eficiente) ─
+# ── Ingestion queries (UNWIND + MERGE = idempotent and efficient) ─
 _MERGE_CLIENTS = """
     UNWIND $batch AS row
     MERGE (c:Client { client_id: row.client_id })
@@ -79,9 +79,9 @@ def _chunked(items: list[Any], size: int) -> Generator[list[Any], None, None]:
 
 class Neo4jPipeline:
     """
-    Gerencia ingestão completa no Neo4j.
+    Manages full ingestion into Neo4j.
 
-    Uso:
+    Usage:
         with Neo4jPipeline(uri, user, password) as p:
             p.setup_schema()
             p.ingest(dataset)
@@ -107,21 +107,21 @@ class Neo4jPipeline:
         try:
             self._driver = GraphDatabase.driver(self._uri, auth=(self._user, self._password))
             self._driver.verify_connectivity()
-            logger.info("✅  Conectado ao Neo4j em %s", self._uri)
+            logger.info("✅  Connected to Neo4j at %s", self._uri)
         except ServiceUnavailable:
-            logger.error("❌  Neo4j inacessível — verifique se está rodando.")
+            logger.error("❌  Neo4j unreachable — check whether it's running.")
             raise
         except AuthError:
-            logger.error("❌  Credenciais inválidas para '%s'.", self._user)
+            logger.error("❌  Invalid credentials for '%s'.", self._user)
             raise
 
     def close(self) -> None:
         if self._driver is not None:
             self._driver.close()
-            logger.info("🔌  Conexão encerrada.")
+            logger.info("🔌  Connection closed.")
 
     def setup_schema(self) -> None:
-        """Cria constraints e índices. Idempotente."""
+        """Creates constraints and indexes. Idempotent."""
         schema = [
             ("Constraint Client",      _CONSTRAINT_CLIENT),
             ("Constraint BankAccount", _CONSTRAINT_ACCOUNT),
@@ -132,38 +132,38 @@ class Neo4jPipeline:
         with self._session() as session:
             for name, stmt in schema:
                 session.run(stmt)
-                logger.debug("    ✔ %s criado/verificado.", name)
-        logger.info("✅  Schema configurado.")
+                logger.debug("    ✔ %s created/verified.", name)
+        logger.info("✅  Schema configured.")
 
     def ingest(self, dataset: SyntheticDataset) -> None:
-        logger.info("🚀  Iniciando ingestão…")
+        logger.info("🚀  Starting ingestion…")
         self._ingest_clients(dataset.clients)
         self._ingest_accounts(dataset.accounts)
         self._ingest_transactions(dataset.transactions)
-        logger.info("✅  Ingestão concluída.")
+        logger.info("✅  Ingestion completed.")
 
     def clear_database(self) -> None:
-        logger.warning("⚠️   Limpando banco de dados!")
+        logger.warning("⚠️   Clearing database!")
         with self._session() as session:
             session.execute_write(lambda tx: tx.run("MATCH (n) DETACH DELETE n"))
-        logger.info("🗑   Banco limpo.")
+        logger.info("🗑   Database cleared.")
 
     def _ingest_clients(self, clients: list[Client]) -> None:
-        logger.info("  👤  Inserindo %d clientes…", len(clients))
+        logger.info("  👤  Inserting %d clients…", len(clients))
         data = [asdict(c) for c in clients]
         with self._session() as session:
             for chunk in _chunked(data, self.BATCH_SIZE):
                 session.execute_write(self._write_batch, _MERGE_CLIENTS, chunk)
 
     def _ingest_accounts(self, accounts: list[BankAccount]) -> None:
-        logger.info("  🏦  Inserindo %d contas…", len(accounts))
+        logger.info("  🏦  Inserting %d accounts…", len(accounts))
         data = [asdict(a) for a in accounts]
         with self._session() as session:
             for chunk in _chunked(data, self.BATCH_SIZE):
                 session.execute_write(self._write_batch, _MERGE_ACCOUNTS, chunk)
 
     def _ingest_transactions(self, transactions: list[Transaction]) -> None:
-        logger.info("  💸  Inserindo %d transações…", len(transactions))
+        logger.info("  💸  Inserting %d transactions…", len(transactions))
         data = [asdict(t) for t in transactions]
         with self._session() as session:
             for chunk in _chunked(data, self.BATCH_SIZE):
@@ -176,12 +176,12 @@ class Neo4jPipeline:
     @contextmanager
     def _session(self) -> Generator[Session, None, None]:
         if self._driver is None:
-            raise RuntimeError("Driver não inicializado.")
+            raise RuntimeError("Driver not initialized.")
         session = self._driver.session(database=self._database)
         try:
             yield session
         except Neo4jError as exc:
-            logger.error("❌  Erro Neo4j: %s", exc.message)
+            logger.error("❌  Neo4j error: %s", exc.message)
             raise
         finally:
             session.close()
