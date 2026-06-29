@@ -1,11 +1,11 @@
 """
-Orquestrador principal.
+Main orchestrator.
 
-Uso:
-    python main.py                   # fluxo completo
-    python main.py --skip-ingest     # só detecção (banco já populado)
-    python main.py --clear           # limpa banco antes de inserir
-    python main.py --seed 99         # dados diferentes
+Usage:
+    python main.py                   # full pipeline
+    python main.py --skip-ingest     # detection only (database already populated)
+    python main.py --clear           # clear database before inserting
+    python main.py --seed 99         # different data
     python main.py --clients 50 --fraud-cycles 5
 """
 from __future__ import annotations
@@ -35,14 +35,14 @@ def _load_config() -> dict:
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
-        logger.info("📄  Configuração carregada de: %s", env_path)
+        logger.info("📄  Configuration loaded from: %s", env_path)
     else:
-        logger.warning("⚠️   .env não encontrado — usando variáveis do sistema.")
+        logger.warning("⚠️   .env not found — using system environment variables.")
 
     missing = [k for k in ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD") if not os.getenv(k)]
     if missing:
         logger.error(
-            "❌  Variáveis ausentes: %s\n    → Copie .env.example para .env e preencha.",
+            "❌  Missing variables: %s\n    → Copy .env.example to .env and fill it in.",
             ", ".join(missing),
         )
         sys.exit(1)
@@ -60,17 +60,17 @@ def _load_config() -> dict:
 
 
 def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Detecção de Fraude — Neo4j")
+    p = argparse.ArgumentParser(description="Fraud Detection — Neo4j")
     p.add_argument("--skip-ingest",  action="store_true",
-                   help="Pula geração/ingestão (banco já populado).")
+                   help="Skip generation/ingestion (database already populated).")
     p.add_argument("--clear",        action="store_true",
-                   help="Limpa o banco antes de inserir.")
+                   help="Clear the database before inserting.")
     p.add_argument("--seed",         type=int, default=None,
-                   help="Sobrescreve RANDOM_SEED.")
+                   help="Overrides RANDOM_SEED.")
     p.add_argument("--clients",      type=int, default=None,
-                   help="Sobrescreve NUM_CLIENTS.")
+                   help="Overrides NUM_CLIENTS.")
     p.add_argument("--fraud-cycles", type=int, default=None,
-                   help="Sobrescreve NUM_FRAUD_CYCLES.")
+                   help="Overrides NUM_FRAUD_CYCLES.")
     return p.parse_args()
 
 
@@ -79,7 +79,7 @@ def main() -> None:
     config = _load_config()
 
     print("\n" + "═" * 56)
-    print("  FRAUD DETECTION — Neo4j · Smurfing em Ciclo")
+    print("  FRAUD DETECTION — Neo4j · Cyclical Smurfing")
     print("═" * 56)
 
     if not args.skip_ingest:
@@ -87,7 +87,7 @@ def main() -> None:
         clients = args.clients      or config["num_clients"]
         cycles  = args.fraud_cycles or config["num_fraud_cycles"]
 
-        logger.info("ETAPA 1 — Gerando dados sintéticos…")
+        logger.info("STEP 1 — Generating synthetic data…")
         gen     = SyntheticDataGenerator(seed=seed)
         dataset = gen.generate(
             num_clients=clients,
@@ -96,7 +96,7 @@ def main() -> None:
         )
         print(dataset.summary())
 
-        logger.info("ETAPA 2 — Ingerindo no Neo4j…")
+        logger.info("STEP 2 — Ingesting into Neo4j…")
         with Neo4jPipeline(
             uri=config["uri"], user=config["user"],
             password=config["password"], database=config["database"],
@@ -106,9 +106,9 @@ def main() -> None:
             pipeline.setup_schema()
             pipeline.ingest(dataset)
     else:
-        logger.info("⏭   Ingestão ignorada (--skip-ingest).")
+        logger.info("⏭   Ingestion skipped (--skip-ingest).")
 
-    logger.info("ETAPA 3 — Executando detecção de fraude…")
+    logger.info("STEP 3 — Running fraud detection…")
     with FraudDetector(
         uri=config["uri"], user=config["user"],
         password=config["password"], database=config["database"],
