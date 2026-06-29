@@ -212,17 +212,17 @@ class FraudDetector:
         ]
 
     def _detect_structural_cycles(self, session: Session) -> list[dict]:
-    raw = [dict(r) for r in session.run(_Q2_STRUCTURAL_CYCLES)]
-    best_by_key: dict[frozenset[str], dict] = {}
-    for row in raw:
-        key = frozenset(row.get("participant_accounts", []))
-        current = best_by_key.get(key)
-        if current is None or row["origin_account"] < current["origin_account"]:
-            best_by_key[key] = row
-    return sorted(
-        best_by_key.values(),
-        key=lambda r: r.get("initial_amount", 0),
-        reverse=True,
+        raw = [dict(r) for r in session.run(_Q2_STRUCTURAL_CYCLES)]
+        best_by_key: dict[frozenset[str], dict] = {}
+        for row in raw:
+            key = frozenset(row.get("participant_accounts", []))
+            current = best_by_key.get(key)
+            if current is None or row["origin_account"] < current["origin_account"]:
+                best_by_key[key] = row
+        return sorted(
+            best_by_key.values(),
+            key=lambda r: r.get("initial_amount", 0),
+            reverse=True,
     )
 
     def _rank_account_risk(self, session: Session) -> list[AccountRiskResult]:
