@@ -56,17 +56,16 @@ _Q1_LABELED_CYCLES = """
 # - Quantified path patterns (Neo4j 5.9+) don't support length()
 # - The hop count is inferred via size(amounts) after the WITH
 # - Temporal window < 2h (7200s) filters out legitimate coincidental routes
+
 _Q2_STRUCTURAL_CYCLES = """
     MATCH path = (start:BankAccount)
-          (()-[:SENT]->(:Transaction)-[:RECEIVED]->())+
+          (()-[:SENT]->(:Transaction)-[:RECEIVED]->()){2,5}
           (start)
     WITH start,
          [n IN nodes(path) WHERE n:Transaction | n.amount]     AS amounts,
          [n IN nodes(path) WHERE n:Transaction | n.timestamp]  AS timestamps,
          [n IN nodes(path) WHERE n:BankAccount | n.account_number] AS accounts
-    WHERE size(amounts) >= 2
-      AND size(amounts) <= 5
-      AND timestamps[0] IS NOT NULL
+    WHERE timestamps[0] IS NOT NULL
       AND timestamps[-1] IS NOT NULL
       AND duration.inSeconds(timestamps[0], timestamps[-1]).seconds < 7200
     RETURN DISTINCT
