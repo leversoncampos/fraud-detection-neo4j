@@ -1,6 +1,6 @@
 """
-Módulo 1 — Gerador de Dados Sintéticos
-Gera clientes, contas e transações com padrão de fraude em ciclo.
+Module 1 — Synthetic Data Generator
+Generates clients, accounts and transactions with an injected cyclical fraud pattern.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Final
 
 from faker import Faker
 
-FRAUD_LABEL: Final[str] = "FRAUDE_CICLO"
+FRAUD_LABEL: Final[str] = "FRAUD_CYCLE"
 NORMAL_LABEL: Final[str] = "NORMAL"
 
 MIN_BALANCE: Final[float] = 1_000.0
@@ -70,13 +70,13 @@ class SyntheticDataset:
         cycles = len({t.cycle_id for t in self.fraud_transactions if t.cycle_id})
         return (
             f"\n{'─' * 50}\n"
-            f"  DATASET GERADO\n"
+            f"  DATASET GENERATED\n"
             f"{'─' * 50}\n"
-            f"  Clientes           : {len(self.clients):>5}\n"
-            f"  Contas bancárias   : {len(self.accounts):>5}\n"
-            f"  Transações normais : {len(self.normal_transactions):>5}\n"
-            f"  Transações fraude  : {len(self.fraud_transactions):>5}\n"
-            f"  Ciclos de fraude   : {cycles:>5}\n"
+            f"  Clients            : {len(self.clients):>5}\n"
+            f"  Bank accounts      : {len(self.accounts):>5}\n"
+            f"  Normal transactions: {len(self.normal_transactions):>5}\n"
+            f"  Fraud transactions : {len(self.fraud_transactions):>5}\n"
+            f"  Fraud cycles       : {cycles:>5}\n"
             f"{'─' * 50}\n"
         )
 
@@ -90,7 +90,7 @@ class SyntheticDataGenerator:
 
     def generate(self, num_clients=20, num_transactions=40, num_fraud_cycles=3) -> SyntheticDataset:
         if num_clients < 6:
-            raise ValueError("Mínimo de 6 clientes.")
+            raise ValueError("Minimum of 6 clients required.")
         clients  = self._generate_clients(num_clients)
         accounts = self._generate_accounts(clients)
         dataset  = SyntheticDataset(clients=clients, accounts=accounts)
@@ -102,7 +102,8 @@ class SyntheticDataGenerator:
         clients, used_cpfs = [], set()
         while len(clients) < count:
             cpf = self._fake.cpf()
-            if cpf in used_cpfs: continue
+            if cpf in used_cpfs:
+                continue
             used_cpfs.add(cpf)
             clients.append(Client(str(uuid.uuid4()), self._fake.name(), cpf, self._fake.email()))
         return clients
