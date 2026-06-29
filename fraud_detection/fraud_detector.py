@@ -1,9 +1,9 @@
 """
-Módulo 3 — Detector de Fraude
-Executa 4 queries de detecção e imprime relatório formatado.
+Module 3 — Fraud Detector
+Runs 4 detection queries and prints a formatted report.
 
-CORREÇÃO: Q2 — removido length(path) incompatível com quantified path patterns
-do Neo4j 5. O filtro de número de saltos agora usa size(amounts) após o WITH.
+FIX: Q2 — removed length(path), which is incompatible with quantified path
+patterns in Neo4j 5. The hop-count filter now uses size(amounts) after the WITH.
 """
 from __future__ import annotations
 
@@ -30,9 +30,9 @@ class _C:
     RESET  = "\033[0m"
 
 
-# ── Q1 — Ciclos rotulados ─────────────────────────────────────────
+# ── Q1 — Labeled cycles ────────────────────────────────────────────
 _Q1_LABELED_CYCLES = """
-    MATCH (tx:Transaction { label: 'FRAUDE_CICLO' })
+    MATCH (tx:Transaction { label: 'FRAUD_CYCLE' })
     WITH tx.cycle_id AS cycle_id,
          sum(tx.amount)    AS total_volume,
          min(tx.timestamp) AS first_at,
@@ -51,11 +51,11 @@ _Q1_LABELED_CYCLES = """
     ORDER BY total_volume DESC
 """
 
-# ── Q2 — Ciclos estruturais (sem labels) ─────────────────────────
-# CORREÇÃO: length(path) foi removido.
-# - Quantified path patterns (Neo4j 5.9+) não suportam length()
-# - O número de saltos é inferido via size(amounts) após o WITH
-# - Janela temporal < 2h (7200s) filtra rotas coincidentes legítimas
+# ── Q2 — Structural cycles (label-independent) ────────────────────
+# FIX: length(path) was removed.
+# - Quantified path patterns (Neo4j 5.9+) don't support length()
+# - The hop count is inferred via size(amounts) after the WITH
+# - Temporal window < 2h (7200s) filters out legitimate coincidental routes
 _Q2_STRUCTURAL_CYCLES = """
     MATCH path = (start:BankAccount)
           (()-[:SENT]->(:Transaction)-[:RECEIVED]->())+
@@ -83,9 +83,9 @@ _Q2_STRUCTURAL_CYCLES = """
     LIMIT 20
 """
 
-# ── Q3 — Ranking de contas por volume suspeito ───────────────────
+# ── Q3 — Account ranking by suspicious volume ─────────────────────
 _Q3_ACCOUNT_RISK_RANKING = """
-    MATCH (a:BankAccount)-[:SENT]->(tx:Transaction { label: 'FRAUDE_CICLO' })
+    MATCH (a:BankAccount)-[:SENT]->(tx:Transaction { label: 'FRAUD_CYCLE' })
     WITH a,
          count(tx)                    AS fraud_tx_count,
          sum(tx.amount)               AS total_fraud_volume,
@@ -100,9 +100,9 @@ _Q3_ACCOUNT_RISK_RANKING = """
     LIMIT 15
 """
 
-# ── Q4 — Análise temporal com classificação de risco ─────────────
+# ── Q4 — Temporal analysis with risk classification ───────────────
 _Q4_TEMPORAL_ANALYSIS = """
-    MATCH (tx:Transaction { label: 'FRAUDE_CICLO' })
+    MATCH (tx:Transaction { label: 'FRAUD_CYCLE' })
     WHERE tx.cycle_id IS NOT NULL
     WITH tx.cycle_id AS cycle_id,
          min(tx.timestamp) AS first_at,
@@ -154,9 +154,9 @@ class DetectionReport:
 
 class FraudDetector:
     """
-    Executa detecção contra banco Neo4j já populado.
+    Runs detection against an already-populated Neo4j database.
 
-    Uso:
+    Usage:
         with FraudDetector(uri, user, password) as d:
             report = d.run_full_detection()
             d.print_report(report)
@@ -243,58 +243,58 @@ class FraudDetector:
     def _print_header(self) -> None:
         w = 68
         print(f"\n{_C.BOLD}{_C.CYAN}{'═' * w}")
-        print(f"  {'DETECÇÃO DE FRAUDE FINANCEIRA — Neo4j':^64}")
-        print(f"  {'Lavagem de Dinheiro em Ciclo (Smurfing)':^64}")
+        print(f"  {'FINANCIAL FRAUD DETECTION — Neo4j':^64}")
+        print(f"  {'Cyclical Money Laundering (Smurfing)':^64}")
         print(f"{'═' * w}{_C.RESET}\n")
 
     def _print_labeled_cycles(self, cycles: list[FraudCycleResult]) -> None:
         print(f"{_C.BOLD}{_C.RED}{'─' * 68}")
-        print("  ⚠  Q1 — CICLOS ROTULADOS (FRAUDE_CICLO)")
+        print("  ⚠  Q1 — LABELED CYCLES (FRAUD_CYCLE)")
         print(f"{'─' * 68}{_C.RESET}")
         if not cycles:
-            print(f"  {_C.GREEN}Nenhum ciclo encontrado.{_C.RESET}\n")
+            print(f"  {_C.GREEN}No cycles found.{_C.RESET}\n")
             return
         for i, c in enumerate(cycles, 1):
-            contas = sorted(set(c.source_accounts) | set(c.dest_accounts))
-            print(f"\n  {_C.BOLD}{_C.RED}CICLO #{i}{_C.RESET}  "
+            accounts = sorted(set(c.source_accounts) | set(c.dest_accounts))
+            print(f"\n  {_C.BOLD}{_C.RED}CYCLE #{i}{_C.RESET}  "
                   f"{_C.DIM}(id: {c.cycle_id[:8]}…){_C.RESET}")
-            print(f"  {'Transações':<26}: {_C.YELLOW}{c.num_transactions}{_C.RESET}")
-            print(f"  {'Volume total lavado':<26}: {_C.RED}{self._fmt_brl(c.total_volume)}{_C.RESET}")
-            print(f"  {'Janela temporal':<26}: {_C.YELLOW}{self._fmt_seconds(c.window_seconds)}{_C.RESET}")
-            print(f"  {'Início':<26}: {c.started_at}")
-            print(f"  {'Fim':<26}: {c.ended_at}")
-            print(f"  {'Contas participantes':<26}:")
-            for acc in contas:
+            print(f"  {'Transactions':<26}: {_C.YELLOW}{c.num_transactions}{_C.RESET}")
+            print(f"  {'Total laundered volume':<26}: {_C.RED}{self._fmt_brl(c.total_volume)}{_C.RESET}")
+            print(f"  {'Time window':<26}: {_C.YELLOW}{self._fmt_seconds(c.window_seconds)}{_C.RESET}")
+            print(f"  {'Started':<26}: {c.started_at}")
+            print(f"  {'Ended':<26}: {c.ended_at}")
+            print(f"  {'Participant accounts':<26}:")
+            for acc in accounts:
                 print(f"    {_C.RED}▶  {acc}{_C.RESET}")
         print()
 
     def _print_structural_cycles(self, cycles: list[dict]) -> None:
         print(f"{_C.BOLD}{_C.YELLOW}{'─' * 68}")
-        print("  🔎  Q2 — CICLOS ESTRUTURAIS (sem depender de labels)")
+        print("  🔎  Q2 — STRUCTURAL CYCLES (label-independent)")
         print(f"{'─' * 68}{_C.RESET}")
         if not cycles:
-            print(f"  {_C.GREEN}Nenhum ciclo estrutural.{_C.RESET}\n")
+            print(f"  {_C.GREEN}No structural cycles found.{_C.RESET}\n")
             return
         for i, c in enumerate(cycles, 1):
-            print(f"\n  {_C.BOLD}CICLO #{i}{_C.RESET}")
-            print(f"  {'Conta de origem':<26}: {_C.YELLOW}{c.get('origin_account')}{_C.RESET}")
-            print(f"  {'Saltos':<26}: {c.get('cycle_hops')}")
-            print(f"  {'Valor inicial':<26}: {self._fmt_brl(c.get('initial_amount', 0))}")
-            print(f"  {'Valor final':<26}: {self._fmt_brl(c.get('final_amount', 0))}")
-            print(f"  {'Taxas (laranjas)':<26}: {_C.RED}{self._fmt_brl(c.get('laundered_fees', 0))}{_C.RESET}")
-            print(f"  {'Janela':<26}: {_C.YELLOW}{self._fmt_seconds(c.get('cycle_window_seconds', 0))}{_C.RESET}")
+            print(f"\n  {_C.BOLD}CYCLE #{i}{_C.RESET}")
+            print(f"  {'Origin account':<26}: {_C.YELLOW}{c.get('origin_account')}{_C.RESET}")
+            print(f"  {'Hops':<26}: {c.get('cycle_hops')}")
+            print(f"  {'Initial amount':<26}: {self._fmt_brl(c.get('initial_amount', 0))}")
+            print(f"  {'Final amount':<26}: {self._fmt_brl(c.get('final_amount', 0))}")
+            print(f"  {'Fees (mules)':<26}: {_C.RED}{self._fmt_brl(c.get('laundered_fees', 0))}{_C.RESET}")
+            print(f"  {'Window':<26}: {_C.YELLOW}{self._fmt_seconds(c.get('cycle_window_seconds', 0))}{_C.RESET}")
             accs = c.get("participant_accounts", [])
-            print(f"  {'Cadeia':<26}: {_C.YELLOW}{' → '.join(str(a) for a in accs)}{_C.RESET}")
+            print(f"  {'Chain':<26}: {_C.YELLOW}{' → '.join(str(a) for a in accs)}{_C.RESET}")
         print()
 
     def _print_account_risk(self, risks: list[AccountRiskResult]) -> None:
         print(f"{_C.BOLD}{_C.BLUE}{'─' * 68}")
-        print("  📊  Q3 — RANKING DE CONTAS SUSPEITAS")
+        print("  📊  Q3 — SUSPICIOUS ACCOUNT RANKING")
         print(f"{'─' * 68}{_C.RESET}")
         if not risks:
-            print(f"  {_C.GREEN}Sem contas em risco.{_C.RESET}\n")
+            print(f"  {_C.GREEN}No accounts at risk.{_C.RESET}\n")
             return
-        print(f"  {_C.DIM}{'#':<4}{'Conta':<18}{'Banco':<20}{'TXs':>6}{'Ciclos':>8}{'Volume':>18}{_C.RESET}")
+        print(f"  {_C.DIM}{'#':<4}{'Account':<18}{'Bank':<20}{'TXs':>6}{'Cycles':>8}{'Volume':>18}{_C.RESET}")
         print(f"  {'─' * 64}")
         for i, r in enumerate(risks, 1):
             color = _C.RED if i <= 3 else _C.YELLOW
@@ -309,7 +309,7 @@ class FraudDetector:
 
     def _print_temporal(self, temporal: list[dict]) -> None:
         print(f"{_C.BOLD}{_C.CYAN}{'─' * 68}")
-        print("  ⏱   Q4 — ANÁLISE TEMPORAL E CLASSIFICAÇÃO DE RISCO")
+        print("  ⏱   Q4 — TEMPORAL ANALYSIS & RISK CLASSIFICATION")
         print(f"{'─' * 68}{_C.RESET}")
         colors = {"CRITICAL": _C.RED, "HIGH": _C.YELLOW, "MEDIUM": _C.BLUE}
         for r in temporal:
@@ -318,7 +318,7 @@ class FraudDetector:
             print(
                 f"  {col}[{level:^8}]{_C.RESET}"
                 f"  {str(r.get('cycle_id',''))[:8]}…"
-                f"  |  {r.get('hops')} saltos"
+                f"  |  {r.get('hops')} hops"
                 f"  |  {self._fmt_seconds(r.get('window_seconds', 0))}"
                 f"  |  {self._fmt_brl(r.get('total_volume', 0))}"
             )
@@ -327,12 +327,12 @@ class FraudDetector:
     def _print_footer(self, report: DetectionReport) -> None:
         vol = sum(c.total_volume for c in report.labeled_cycles)
         print(f"{_C.BOLD}{_C.CYAN}{'═' * 68}")
-        print("  RESUMO EXECUTIVO")
+        print("  EXECUTIVE SUMMARY")
         print(f"{'─' * 68}{_C.RESET}")
-        print(f"  {'Ciclos rotulados':<38}: {_C.RED}{len(report.labeled_cycles)}{_C.RESET}")
-        print(f"  {'Ciclos estruturais':<38}: {_C.YELLOW}{len(report.structural_cycles)}{_C.RESET}")
-        print(f"  {'Contas em risco':<38}: {_C.YELLOW}{len(report.account_risks)}{_C.RESET}")
-        print(f"  {'Volume total suspeito':<38}: {_C.RED}{self._fmt_brl(vol)}{_C.RESET}")
+        print(f"  {'Labeled cycles':<38}: {_C.RED}{len(report.labeled_cycles)}{_C.RESET}")
+        print(f"  {'Structural cycles':<38}: {_C.YELLOW}{len(report.structural_cycles)}{_C.RESET}")
+        print(f"  {'Accounts at risk':<38}: {_C.YELLOW}{len(report.account_risks)}{_C.RESET}")
+        print(f"  {'Total suspicious volume':<38}: {_C.RED}{self._fmt_brl(vol)}{_C.RESET}")
         print(f"{_C.BOLD}{_C.CYAN}{'═' * 68}{_C.RESET}\n")
 
     @contextmanager
@@ -341,7 +341,7 @@ class FraudDetector:
         try:
             yield session
         except Neo4jError as exc:
-            logger.error("Erro Neo4j: %s", exc.message)
+            logger.error("Neo4j error: %s", exc.message)
             raise
         finally:
             session.close()
