@@ -32,7 +32,7 @@ logger = logging.getLogger("main")
 
 
 def _load_config() -> dict:
-    env_path = Path(__file__).parent / ".env"
+    env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
         logger.info("📄  Configuration loaded from: %s", env_path)
